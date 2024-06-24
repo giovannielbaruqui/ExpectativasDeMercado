@@ -1,27 +1,41 @@
 ﻿using System;
+using System.Threading.Tasks;
 using System.Windows.Input;
 
-public class RelayCommand : ICommand
+public class RelayCommandAsync : ICommand
 {
-    private readonly Action _execute;
+    private readonly Func<Task> _execute;
     private readonly Func<bool> _canExecute;
+    private bool _isExecuting;
 
     public event EventHandler CanExecuteChanged;
 
-    public RelayCommand(Action execute, Func<bool> canExecute = null)
+    public RelayCommandAsync(Func<Task> execute, Func<bool> canExecute = null)
     {
-        _execute = execute;
+        _execute = execute ?? throw new ArgumentNullException(nameof(execute));
         _canExecute = canExecute;
     }
 
     public bool CanExecute(object parameter)
     {
-        return _canExecute == null || _canExecute();
+        return !_isExecuting && (_canExecute == null || _canExecute());
     }
 
-    public void Execute(object parameter)
+    public async void Execute(object parameter)
     {
-        _execute();
+        if (CanExecute(parameter))
+        {
+            try
+            {
+                _isExecuting = true;
+                await _execute();
+            }
+            finally
+            {
+                _isExecuting = false;
+                RaiseCanExecuteChanged();
+            }
+        }
     }
 
     public void RaiseCanExecuteChanged()

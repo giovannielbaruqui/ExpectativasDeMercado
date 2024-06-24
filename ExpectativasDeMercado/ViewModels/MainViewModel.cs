@@ -1,31 +1,30 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using System.Windows.Input;
 
 public class MainViewModel : INotifyPropertyChanged
 {
-    private BacenApiService _bacenApiService;
+    private readonly BacenApiService _bacenApiService; // Alteração para BacenApiService
     private string _selectedIndicador;
     private DateTime _startDate;
     private DateTime _endDate;
     private ObservableCollection<MarketExpectation> _expectations;
     private bool _isLoading;
 
-    public MainViewModel()
+    public MainViewModel(BacenApiService bacenApiService) // Alteração para BacenApiService
     {
-        _bacenApiService = new BacenApiService();
+        _bacenApiService = bacenApiService ?? throw new ArgumentNullException(nameof(bacenApiService));
         Expectations = new ObservableCollection<MarketExpectation>();
         Indicadores = new ObservableCollection<string> { "IPCA", "IGP-M", "Selic" };
-        LoadDataCommand = new RelayCommand(async () => await LoadData());
-        ClearDataCommand = new RelayCommand(ClearData);
+        LoadDataCommand = new RelayCommandAsync(async () => await LoadDataAsync(), () => !IsLoading);
+        ClearDataCommand = new RelayCommandAsync(ClearData);
         StartDate = DateTime.Now.AddMonths(-1);
         EndDate = DateTime.Now;
-        // Assumindo que DadosCarregados também precisa ser inicializado
         OnPropertyChanged(nameof(DadosCarregados));
     }
-
-    public event PropertyChangedEventHandler PropertyChanged;
 
     public ObservableCollection<string> Indicadores { get; }
 
@@ -64,15 +63,17 @@ public class MainViewModel : INotifyPropertyChanged
         set { _isLoading = value; OnPropertyChanged(); }
     }
 
-    public ICommand LoadDataCommand { get; }
-    public ICommand ClearDataCommand { get; }
+    public RelayCommandAsync LoadDataCommand { get; }
+    public RelayCommandAsync ClearDataCommand { get; }
 
-    protected void OnPropertyChanged([CallerMemberName] string name = null)
+    public event PropertyChangedEventHandler PropertyChanged;
+
+    protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    private async Task LoadData()
+    private async Task LoadDataAsync()
     {
         IsLoading = true;
         var data = await _bacenApiService.GetMarketExpectations(SelectedIndicador, StartDate, EndDate);
@@ -85,7 +86,7 @@ public class MainViewModel : INotifyPropertyChanged
         IsLoading = false;
     }
 
-    private void ClearData()
+    private async Task ClearData()
     {
         SelectedIndicador = null;
         StartDate = DateTime.Now.AddMonths(-1);
@@ -93,4 +94,5 @@ public class MainViewModel : INotifyPropertyChanged
         Expectations.Clear();
         OnPropertyChanged(nameof(DadosCarregados));
     }
+
 }

@@ -7,7 +7,7 @@ namespace MercadoExpectativaApp
         public MainWindow()
         {
             InitializeComponent();
-            DataContext = new MainViewModel();
+            DataContext = new MainViewModel(new BacenApiService());
         }
     }
 }

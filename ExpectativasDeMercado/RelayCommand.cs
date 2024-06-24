@@ -8,8 +8,6 @@ public class RelayCommandAsync : ICommand
     private readonly Func<bool> _canExecute;
     private bool _isExecuting;
 
-    public event EventHandler CanExecuteChanged;
-
     public RelayCommandAsync(Func<Task> execute, Func<bool> canExecute = null)
     {
         _execute = execute ?? throw new ArgumentNullException(nameof(execute));
@@ -18,27 +16,27 @@ public class RelayCommandAsync : ICommand
 
     public bool CanExecute(object parameter)
     {
-        return !_isExecuting && (_canExecute == null || _canExecute());
+        return !_isExecuting && (_canExecute?.Invoke() ?? true);
     }
 
     public async void Execute(object parameter)
     {
-        if (CanExecute(parameter))
+        _isExecuting = true;
+        RaiseCanExecuteChanged();
+        try
         {
-            try
-            {
-                _isExecuting = true;
-                await _execute();
-            }
-            finally
-            {
-                _isExecuting = false;
-                RaiseCanExecuteChanged();
-            }
+            await _execute();
+        }
+        finally
+        {
+            _isExecuting = false;
+            RaiseCanExecuteChanged();
         }
     }
 
-    public void RaiseCanExecuteChanged()
+    public event EventHandler CanExecuteChanged;
+
+    protected virtual void RaiseCanExecuteChanged()
     {
         CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }

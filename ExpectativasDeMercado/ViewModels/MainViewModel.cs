@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -21,6 +22,7 @@ public class MainViewModel : INotifyPropertyChanged
         Indicadores = new ObservableCollection<string> { "IPCA", "IGP-M", "Selic" };
         LoadDataCommand = new RelayCommandAsync(async () => await LoadDataAsync(), () => !IsLoading);
         ClearDataCommand = new RelayCommandAsync(async () => await ClearData());
+        ExportDataCommand = new RelayCommandAsync(async () => await ExportDataAsync());
         StartDate = DateTime.Now.AddMonths(-1);
         EndDate = DateTime.Now;
         OnPropertyChanged(nameof(DadosCarregados));
@@ -65,6 +67,7 @@ public class MainViewModel : INotifyPropertyChanged
 
     public RelayCommandAsync LoadDataCommand { get; }
     public RelayCommandAsync ClearDataCommand { get; }
+    public RelayCommandAsync ExportDataCommand { get; }
 
     public event PropertyChangedEventHandler PropertyChanged;
 
@@ -106,5 +109,44 @@ public class MainViewModel : INotifyPropertyChanged
         EndDate = DateTime.Now;
         Expectations.Clear();
         OnPropertyChanged(nameof(DadosCarregados));
+    }
+
+    private async Task ExportDataAsync()
+    {
+        var csvLines = new List<string>();
+
+        // Add headers based on the type of data
+        if (SelectedIndicador == "Selic")
+        {
+            csvLines.Add("Indicador,Data,Reuniao,Media,Mediana,DesvioPadrao,Minimo,Maximo,NumeroRespondentes,BaseCalculo");
+            foreach (SelicExpectation item in Expectations)
+            {
+                csvLines.Add($"{item.Indicador},{item.Data},{item.Reuniao},{item.Media},{item.Mediana},{item.DesvioPadrao},{item.Minimo},{item.Maximo},{item.NumeroRespondentes},{item.BaseCalculo}");
+            }
+        }
+        else
+        {
+            csvLines.Add("Indicador,Data,DataReferencia,Media,Mediana,DesvioPadrao,Minimo,Maximo,NumeroRespondentes,BaseCalculo");
+            foreach (MarketExpectation item in Expectations)
+            {
+                csvLines.Add($"{item.Indicador},{item.Data},{item.DataReferencia},{item.Media},{item.Mediana},{item.DesvioPadrao},{item.Minimo},{item.Maximo},{item.NumeroRespondentes},{item.BaseCalculo}");
+            }
+        }
+
+        // Prompt user to save the file
+        var saveFileDialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = "ExpectativasDeMercado",
+            DefaultExt = ".csv",
+            Filter = "CSV files (*.csv)|*.csv"
+        };
+
+        bool? result = saveFileDialog.ShowDialog();
+
+        if (result == true)
+        {
+            string filePath = saveFileDialog.FileName;
+            await File.WriteAllLinesAsync(filePath, csvLines);
+        }
     }
 }

@@ -11,12 +11,20 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="1" Orientation="Vertical" Margin="10">
-            <!-- Linha 1: Tipo buscado, Datas -->
+            <!-- Linha 1: Tipo de API -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                <TextBlock Text="Tipo de API: " VerticalAlignment="Center" Margin="0,0,10,0" Width="80"/>
+                <ComboBox Width="200" 
+                          ItemsSource="{Binding ApiTypes}" 
+                          SelectedItem="{Binding SelectedApiType}" />
+            </StackPanel>
+
+            <!-- Linha 2: Tipo buscado, Datas -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                 <TextBlock Text="Indicador: " VerticalAlignment="Center" Margin="0,0,10,0" Width="54"/>
                 <ComboBox Width="120" 
                           ItemsSource="{Binding Indicadores}" 
-                          SelectedItem="{Binding SelectedIndicador}"/>
+                          SelectedItem="{Binding SelectedIndicador}" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                 <DatePicker Width="142" Margin="0,0,10,0" 
@@ -39,7 +47,7 @@
                 </DatePicker>
             </StackPanel>
 
-            <!-- Linha 2: Carregar dados, Limpar tabela e Exportar para CSV -->
+            <!-- Linha 3: Carregar dados, Limpar tabela e Exportar para CSV -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                 <Button Content="Carregar Dados" Width="120" Margin="0,0,10,0" 
                         Command="{Binding LoadDataCommand}"/>
@@ -49,10 +57,10 @@
                         Command="{Binding ExportDataCommand}"/>
             </StackPanel>
 
-            <!-- Linha 3: Barra de progresso -->
+            <!-- Linha 4: Barra de progresso -->
             <ProgressBar Height="20" Minimum="0" Maximum="100" IsIndeterminate="{Binding IsLoading}" Margin="0,10,0,0"/>
 
-            <!-- Linha 4: Quantidade de dados -->
+            <!-- Linha 5: Quantidade de dados -->
             <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                 <TextBlock Text="Quantidade de dados: " VerticalAlignment="Center" Margin="0"/>
                 <TextBlock Text="{Binding DadosCarregados}" VerticalAlignment="Center"/>

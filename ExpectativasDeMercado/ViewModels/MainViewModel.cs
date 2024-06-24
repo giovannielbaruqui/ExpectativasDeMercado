@@ -7,20 +7,20 @@ using System.Windows.Input;
 
 public class MainViewModel : INotifyPropertyChanged
 {
-    private readonly BacenApiService _bacenApiService; // Alteração para BacenApiService
+    private readonly BacenApiService _bacenApiService;
     private string _selectedIndicador;
     private DateTime _startDate;
     private DateTime _endDate;
-    private ObservableCollection<MarketExpectation> _expectations;
+    private ObservableCollection<object> _expectations; // Alterado para tipo genérico
     private bool _isLoading;
 
-    public MainViewModel(BacenApiService bacenApiService) // Alteração para BacenApiService
+    public MainViewModel(BacenApiService bacenApiService)
     {
         _bacenApiService = bacenApiService ?? throw new ArgumentNullException(nameof(bacenApiService));
-        Expectations = new ObservableCollection<MarketExpectation>();
+        Expectations = new ObservableCollection<object>(); // Alterado para tipo genérico
         Indicadores = new ObservableCollection<string> { "IPCA", "IGP-M", "Selic" };
         LoadDataCommand = new RelayCommandAsync(async () => await LoadDataAsync(), () => !IsLoading);
-        ClearDataCommand = new RelayCommandAsync(ClearData);
+        ClearDataCommand = new RelayCommandAsync(async () => await ClearData());
         StartDate = DateTime.Now.AddMonths(-1);
         EndDate = DateTime.Now;
         OnPropertyChanged(nameof(DadosCarregados));
@@ -46,7 +46,7 @@ public class MainViewModel : INotifyPropertyChanged
         set { _endDate = value; OnPropertyChanged(); }
     }
 
-    public ObservableCollection<MarketExpectation> Expectations
+    public ObservableCollection<object> Expectations
     {
         get { return _expectations; }
         set { _expectations = value; OnPropertyChanged(); OnPropertyChanged(nameof(DadosCarregados)); }
@@ -76,12 +76,25 @@ public class MainViewModel : INotifyPropertyChanged
     private async Task LoadDataAsync()
     {
         IsLoading = true;
-        var data = await _bacenApiService.GetMarketExpectations(SelectedIndicador, StartDate, EndDate);
         Expectations.Clear();
-        foreach (var item in data)
+
+        if (SelectedIndicador == "Selic")
         {
-            Expectations.Add(item);
+            var data = await _bacenApiService.GetSelicExpectations(StartDate, EndDate);
+            foreach (var item in data)
+            {
+                Expectations.Add(item);
+            }
         }
+        else
+        {
+            var data = await _bacenApiService.GetExpectations(SelectedIndicador, StartDate, EndDate);
+            foreach (var item in data)
+            {
+                Expectations.Add(item);
+            }
+        }
+
         OnPropertyChanged(nameof(DadosCarregados));
         IsLoading = false;
     }
@@ -94,5 +107,4 @@ public class MainViewModel : INotifyPropertyChanged
         Expectations.Clear();
         OnPropertyChanged(nameof(DadosCarregados));
     }
-
 }

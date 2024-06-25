@@ -1,14 +1,19 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using ExpectativasDeMercado.Data;
+using Microsoft.EntityFrameworkCore;
 
 public class MainViewModel : INotifyPropertyChanged
 {
     private readonly BacenApiService _bacenApiService;
+    private readonly MarketDbContext _dbContext;
     private string _selectedIndicador;
     private string _selectedApiType;
     private DateTime _startDate;
@@ -16,9 +21,10 @@ public class MainViewModel : INotifyPropertyChanged
     private ObservableCollection<object> _expectations; // Alterado para tipo genérico
     private bool _isLoading;
 
-    public MainViewModel(BacenApiService bacenApiService)
+    public MainViewModel(BacenApiService bacenApiService, MarketDbContext dbContext)
     {
         _bacenApiService = bacenApiService ?? throw new ArgumentNullException(nameof(bacenApiService));
+        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         Expectations = new ObservableCollection<object>(); // Alterado para tipo genérico
         ApiTypes = new ObservableCollection<string> { "Expectativa Mercado Mensais", "Expectativa Mercado" };
         LoadDataCommand = new RelayCommandAsync(async () => await LoadDataAsync(), () => !IsLoading);
@@ -93,27 +99,60 @@ public class MainViewModel : INotifyPropertyChanged
     private async Task LoadDataAsync()
     {
         IsLoading = true;
-        Expectations.Clear();
 
-        if (SelectedApiType == "Expectativa Mercado")
+        try
         {
-            var data = await _bacenApiService.GetSelicExpectations(StartDate, EndDate);
-            foreach (var item in data)
+            if (SelectedApiType == "Expectativa Mercado")
             {
-                Expectations.Add(item);
+                var data = await _bacenApiService.GetSelicExpectations(StartDate, EndDate);
+                Expectations.Clear(); // Limpa a coleção antes de adicionar novos itens
+                foreach (var item in data)
+                {
+                    Expectations.Add(item); // Adiciona o item na coleção
+                }
+            }
+            else if (SelectedApiType == "Expectativa Mercado Mensais")
+            {
+                var data = await _bacenApiService.GetExpectations(SelectedIndicador, StartDate, EndDate);
+                Expectations.Clear(); // Limpa a coleção antes de adicionar novos itens
+                foreach (var item in data)
+                {
+                    Expectations.Add(item); // Adiciona o item na coleção
+                }
+            }
+
+            await SaveChangesAsync(); // Salva as mudanças no banco de dados
+
+            OnPropertyChanged(nameof(DadosCarregados));
+        }
+        catch (Exception ex)
+        {
+            // Lidar com exceções aqui, como logar ou mostrar um erro para o usuário
+            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SaveChangesAsync()
+    {
+        // Itera sobre os itens em Expectations e anexa ao contexto apropriado
+        foreach (var item in Expectations)
+        {
+            if (item is SelicExpectation selicExpectation)
+            {
+                _dbContext.SelicExpectations.Attach(selicExpectation);
+            }
+            else if (item is MarketExpectation marketExpectation)
+            {
+                _dbContext.MarketExpectations.Attach(marketExpectation);
             }
         }
-        else
-        {
-            var data = await _bacenApiService.GetExpectations(SelectedIndicador, StartDate, EndDate);
-            foreach (var item in data)
-            {
-                Expectations.Add(item);
-            }
-        }
 
-        OnPropertyChanged(nameof(DadosCarregados));
-        IsLoading = false;
+        // Salva as mudanças no banco de dados
+        await _dbContext.SaveChangesAsync();
     }
 
     private async Task ClearData()
@@ -122,7 +161,7 @@ public class MainViewModel : INotifyPropertyChanged
         SelectedApiType = null;
         StartDate = DateTime.Now.AddMonths(-1);
         EndDate = DateTime.Now;
-        Expectations.Clear();
+        Expectations.Clear(); // Limpa a coleção
         OnPropertyChanged(nameof(DadosCarregados));
     }
 
@@ -130,7 +169,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         var csvLines = new List<string>();
 
-        // Add headers based on the type of data
+        // Cria linhas CSV baseado no tipo de dado selecionado
         if (SelectedApiType == "Expectativa Mercado")
         {
             csvLines.Add("Indicador,Data,Reuniao,Media,Mediana,DesvioPadrao,Minimo,Maximo,NumeroRespondentes,BaseCalculo");
@@ -139,7 +178,7 @@ public class MainViewModel : INotifyPropertyChanged
                 csvLines.Add($"{item.Indicador},{item.Data},{item.Reuniao},{item.Media},{item.Mediana},{item.DesvioPadrao},{item.Minimo},{item.Maximo},{item.NumeroRespondentes},{item.BaseCalculo}");
             }
         }
-        else
+        else if (SelectedApiType == "Expectativa Mercado Mensais")
         {
             csvLines.Add("Indicador,Data,DataReferencia,Media,Mediana,DesvioPadrao,Minimo,Maximo,NumeroRespondentes,BaseCalculo");
             foreach (MarketExpectation item in Expectations)
@@ -148,7 +187,7 @@ public class MainViewModel : INotifyPropertyChanged
             }
         }
 
-        // Prompt user to save the file
+        // Solicita ao usuário para salvar o arquivo
         var saveFileDialog = new Microsoft.Win32.SaveFileDialog
         {
             FileName = "ExpectativasDeMercado",

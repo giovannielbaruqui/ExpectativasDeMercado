@@ -3,6 +3,18 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         Title="Expectativa de Mercado" Height="450" Width="800">
+    <Window.Resources>
+        <Style TargetType="DatePickerTextBox">
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="Text" Value="Data Inicial"/>
+                </Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="False">
+                    <Setter Property="Text" Value="Data Final"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

@@ -36,7 +36,7 @@ public class RelayCommandAsync : ICommand
 
     public event EventHandler CanExecuteChanged;
 
-    protected virtual void RaiseCanExecuteChanged()
+    public void RaiseCanExecuteChanged()
     {
         CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }

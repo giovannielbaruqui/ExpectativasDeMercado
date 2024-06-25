@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.IO;
+using System.IO; // Adicionar esta linha
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -13,17 +15,17 @@ public class MainViewModel : INotifyPropertyChanged
     private string _selectedApiType;
     private DateTime _startDate;
     private DateTime _endDate;
-    private ObservableCollection<object> _expectations; // Alterado para tipo genérico
+    private ObservableCollection<object> _expectations;
     private bool _isLoading;
 
     public MainViewModel(BacenApiService bacenApiService)
     {
         _bacenApiService = bacenApiService ?? throw new ArgumentNullException(nameof(bacenApiService));
-        Expectations = new ObservableCollection<object>(); // Alterado para tipo genérico
+        Expectations = new ObservableCollection<object>();
         ApiTypes = new ObservableCollection<string> { "Expectativa Mercado Mensais", "Expectativa Mercado" };
-        LoadDataCommand = new RelayCommandAsync(async () => await LoadDataAsync(), () => !IsLoading);
-        ClearDataCommand = new RelayCommandAsync(async () => await ClearData());
-        ExportDataCommand = new RelayCommandAsync(async () => await ExportDataAsync());
+        LoadDataCommand = new RelayCommandAsync(async () => await LoadDataAsync(), () => !IsLoading && (SelectedIndicador != null || SelectedApiType == "Expectativa Mercado"));
+        ClearDataCommand = new RelayCommandAsync(async () => await ClearData(), () => Expectations.Any());
+        ExportDataCommand = new RelayCommandAsync(async () => await ExportDataAsync(), () => Expectations.Any());
         StartDate = DateTime.Now.AddMonths(-1);
         EndDate = DateTime.Now;
         OnPropertyChanged(nameof(DadosCarregados));
@@ -36,7 +38,12 @@ public class MainViewModel : INotifyPropertyChanged
     public string SelectedIndicador
     {
         get { return _selectedIndicador; }
-        set { _selectedIndicador = value; OnPropertyChanged(); }
+        set
+        {
+            _selectedIndicador = value;
+            OnPropertyChanged();
+            LoadDataCommand.RaiseCanExecuteChanged();
+        }
     }
 
     public string SelectedApiType
@@ -46,7 +53,8 @@ public class MainViewModel : INotifyPropertyChanged
         {
             _selectedApiType = value;
             OnPropertyChanged();
-            UpdateIndicadores(); // Atualiza os indicadores quando o tipo de API é alterado
+            UpdateIndicadores();
+            LoadDataCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -114,23 +122,25 @@ public class MainViewModel : INotifyPropertyChanged
 
         OnPropertyChanged(nameof(DadosCarregados));
         IsLoading = false;
+
+        ClearDataCommand.RaiseCanExecuteChanged();
+        ExportDataCommand.RaiseCanExecuteChanged();
     }
 
     private async Task ClearData()
     {
         SelectedIndicador = null;
-        SelectedApiType = null;
-        StartDate = DateTime.Now.AddMonths(-1);
-        EndDate = DateTime.Now;
         Expectations.Clear();
         OnPropertyChanged(nameof(DadosCarregados));
+
+        ClearDataCommand.RaiseCanExecuteChanged();
+        ExportDataCommand.RaiseCanExecuteChanged();
     }
 
     private async Task ExportDataAsync()
     {
         var csvLines = new List<string>();
 
-        // Add headers based on the type of data
         if (SelectedApiType == "Expectativa Mercado")
         {
             csvLines.Add("Indicador,Data,Reuniao,Media,Mediana,DesvioPadrao,Minimo,Maximo,NumeroRespondentes,BaseCalculo");
@@ -148,7 +158,6 @@ public class MainViewModel : INotifyPropertyChanged
             }
         }
 
-        // Prompt user to save the file
         var saveFileDialog = new Microsoft.Win32.SaveFileDialog
         {
             FileName = "ExpectativasDeMercado",
